@@ -1,3 +1,18 @@
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from "firebase/auth";
+
+import { auth } from "./firebase";
+import {
+  doc,
+  setDoc,
+  onSnapshot
+} from "firebase/firestore";
+
+import { db } from "./firebase";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type SoapItem = {
@@ -57,7 +72,13 @@ export default function App() {
     useState("ventas");
 
   const [inventory, setInventory] =
-    useState<SoapItem[]>([]);
+    useState<SoapItem[]>(
+      SOAPS.map((soap) => ({
+        name: soap,
+        quantity: 0,
+        sold: 0
+      }))
+    );
 
   const [sales, setSales] =
     useState<Sale[]>([]);
@@ -83,69 +104,74 @@ export default function App() {
   const [search, setSearch] =
     useState("");
 
+  const [user, setUser] =
+    useState<any>(null);
+
+  const [isAdmin, setIsAdmin] =
+    useState(false);
+
   const canvasRef =
     useRef<HTMLCanvasElement>(null);
+  const syncFirebase = async (
+    newInventory: any,
+    newSales: any
+  ) => {
 
-  useEffect(() => {
-    const savedInventory =
-      localStorage.getItem(
-        INVENTORY_KEY
-      );
-
-    const savedSales =
-      localStorage.getItem(
-        SALES_KEY
-      );
-
-    let inventoryData: SoapItem[] =
-      savedInventory
-        ? JSON.parse(savedInventory)
-        : [];
-
-    SOAPS.forEach((soapName) => {
-      const exists =
-        inventoryData.find(
-          (i) =>
-            i.name === soapName
-        );
-
-      if (!exists) {
-        inventoryData.push({
-          name: soapName,
-          quantity: 0,
-          sold: 0,
-        });
+    await setDoc(
+      doc(db, "jeymood", "data"),
+      {
+        inventory: newInventory,
+        sales: newSales
       }
-    });
-
-    setInventory(
-      inventoryData
     );
 
-    setSales(
-      savedSales
-        ? JSON.parse(savedSales)
-        : []
-    );
+  };
+  useEffect(() => {
+
+    const unsubscribe =
+      onSnapshot(
+        doc(db, "jeymood", "data"),
+        (snapshot) => {
+
+          if (snapshot.exists()) {
+
+            const data =
+              snapshot.data();
+
+            setInventory(
+              data.inventory ||
+              SOAPS.map((soap) => ({
+                name: soap,
+                quantity: 0,
+                sold: 0
+              }))
+            );
+
+            setSales(
+              data.sales || []
+            );
+
+          } else {
+
+            setInventory(
+              SOAPS.map((soap) => ({
+                name: soap,
+                quantity: 0,
+                sold: 0
+              }))
+            );
+
+            setSales([]);
+
+          }
+
+        }
+      );
+
+    return () =>
+      unsubscribe();
+
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(
-      INVENTORY_KEY,
-      JSON.stringify(
-        inventory
-      )
-    );
-  }, [inventory]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      SALES_KEY,
-      JSON.stringify(
-        sales
-      )
-    );
-  }, [sales]);
 
   const calculatePrice = (
     qty: number,
@@ -165,7 +191,35 @@ export default function App() {
       packs * 5 +
       remaining * 1.5
     );
-  };
+  }; useEffect(() => {
+
+    const unsubscribe =
+      onAuthStateChanged(
+        auth,
+        (currentUser) => {
+
+          setUser(currentUser);
+
+          if (
+            currentUser?.email ===
+            "jonathanmazabanda728@gmail.com"
+          ) {
+
+            setIsAdmin(true);
+
+          } else {
+
+            setIsAdmin(false);
+
+          }
+
+        }
+      );
+
+    return () =>
+      unsubscribe();
+
+  }, []);
 
   const addToCart = () => {
     if (!customer.trim()) {
@@ -276,7 +330,13 @@ export default function App() {
     setInventory(
       updatedInventory
     );
-
+    syncFirebase(
+      updatedInventory,
+      [
+        newSale,
+        ...sales
+      ]
+    );
     setSales((prev) => [
       newSale,
       ...prev,
@@ -493,9 +553,9 @@ export default function App() {
       prev.map((item) =>
         item.name === name
           ? {
-              ...item,
-              quantity: value,
-            }
+            ...item,
+            quantity: value,
+          }
           : item
       )
     );
@@ -563,7 +623,16 @@ export default function App() {
           s.id !== saleId
       )
     );
+    const updatedSales =
+      sales.filter(
+        (s) =>
+          s.id !== saleId
+      );
 
+    syncFirebase(
+      updatedInventory,
+      updatedSales
+    );
     alert(
       "Venta eliminada"
     );
@@ -585,8 +654,75 @@ export default function App() {
       0
     );
 
+  const login = async () => {
+
+    const provider =
+      new GoogleAuthProvider();
+
+    await signInWithPopup(
+      auth,
+      provider
+    );
+
+  };
+
+  const logout = async () => {
+
+    await signOut(auth);
+
+  };
   return (
     <div className="min-h-screen bg-pink-50 text-gray-800 pb-20">
+      <div className="p-4 flex justify-between items-center bg-white shadow rounded-2xl mb-4">
+
+        {user ? (
+
+          <div className="flex items-center gap-3">
+
+            <img
+              src={user.photoURL}
+              className="w-10 h-10 rounded-full"
+            />
+
+            <div>
+
+              <div className="font-bold">
+                {user.displayName}
+              </div>
+
+              <div className="text-xs text-gray-500">
+                {isAdmin
+                  ? "Administrador"
+                  : "Empleado"}
+              </div>
+
+            </div>
+
+          </div>
+
+        ) : (
+
+          <button
+            onClick={login}
+            className="bg-pink-500 text-white px-5 py-3 rounded-2xl font-bold"
+          >
+            Iniciar sesión
+          </button>
+
+        )}
+
+        {user && (
+
+          <button
+            onClick={logout}
+            className="bg-red-500 text-white px-4 py-2 rounded-xl"
+          >
+            Salir
+          </button>
+
+        )}
+
+      </div>
 
       {/* MENU */}
       <div className="sticky top-0 bg-white shadow-lg p-4 flex justify-around z-50">
@@ -597,11 +733,10 @@ export default function App() {
               "ventas"
             )
           }
-          className={`px-4 py-3 rounded-2xl font-bold ${
-            tab === "ventas"
-              ? "bg-pink-500 text-white"
-              : "bg-pink-100"
-          }`}
+          className={`px-4 py-3 rounded-2xl font-bold ${tab === "ventas"
+            ? "bg-pink-500 text-white"
+            : "bg-pink-100"
+            }`}
         >
           Ventas
         </button>
@@ -612,12 +747,11 @@ export default function App() {
               "inventario"
             )
           }
-          className={`px-4 py-3 rounded-2xl font-bold ${
-            tab ===
+          className={`px-4 py-3 rounded-2xl font-bold ${tab ===
             "inventario"
-              ? "bg-pink-500 text-white"
-              : "bg-pink-100"
-          }`}
+            ? "bg-pink-500 text-white"
+            : "bg-pink-100"
+            }`}
         >
           Inventario
         </button>
@@ -628,12 +762,11 @@ export default function App() {
               "historial"
             )
           }
-          className={`px-4 py-3 rounded-2xl font-bold ${
-            tab ===
+          className={`px-4 py-3 rounded-2xl font-bold ${tab ===
             "historial"
-              ? "bg-pink-500 text-white"
-              : "bg-pink-100"
-          }`}
+            ? "bg-pink-500 text-white"
+            : "bg-pink-100"
+            }`}
         >
           Historial
         </button>
@@ -928,6 +1061,7 @@ export default function App() {
 
                         <input
                           type="number"
+                          disabled={!isAdmin}
                           value={item.quantity}
                           onChange={(e) =>
                             updateQuantity(
@@ -970,7 +1104,7 @@ export default function App() {
       )}
 
       {/* HISTORIAL */}
-      {tab === "historial" && (
+      {tab === "historial" && isAdmin && (
         <div className="p-4 space-y-4">
 
           <input
@@ -1012,18 +1146,18 @@ export default function App() {
                     </div>
 
                   </div>
-
-                  <button
-                    onClick={() =>
-                      deleteSale(
-                        sale.id
-                      )
-                    }
-                    className="bg-red-500 text-white px-4 py-2 rounded-xl font-bold"
-                  >
-                    Eliminar
-                  </button>
-
+                  {isAdmin && (
+                    <button
+                      onClick={() =>
+                        deleteSale(
+                          sale.id
+                        )
+                      }
+                      className="bg-red-500 text-white px-4 py-2 rounded-xl font-bold"
+                    >
+                      Eliminar
+                    </button>
+                  )}
                 </div>
 
                 <div className="mt-4 space-y-2">
