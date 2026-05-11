@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { db } from "./firebase";
-
-import {
-  doc,
-  setDoc,
-  onSnapshot
-} from "firebase/firestore";
 type SoapItem = {
   name: string;
   quantity: number;
