@@ -1016,19 +1016,68 @@ export default function App() {
                 Descargar Imagen
               </button>
 
-              <button
-                onClick={() => {
-                  window.open(
-                    `https://wa.me/?text=${encodeURIComponent(
-                      "Hola 👋 aquí está tu factura JEYMOOD"
-                    )}`,
-                    "_blank"
-                  );
-                }}
-                className="w-full bg-green-500 text-white p-4 rounded-2xl font-bold"
-              >
-                Compartir por WhatsApp
-              </button>
+<button
+  onClick={async () => {
+
+    if (!canvasRef.current)
+      return;
+
+    const canvas =
+      canvasRef.current;
+
+    canvas.toBlob(
+      async (blob) => {
+
+        if (!blob) return;
+
+        const file =
+          new File(
+            [blob],
+            "factura-jeymood.png",
+            {
+              type: "image/png"
+            }
+          );
+
+        if (
+          navigator.share &&
+          navigator.canShare({
+            files: [file]
+          })
+        ) {
+
+          await navigator.share({
+
+            title:
+              "Factura JEYMOOD",
+
+            text:
+              "Hola 👋 aquí está tu factura JEYMOOD",
+
+            files: [file]
+
+          });
+
+        } else {
+
+          window.open(
+            `https://wa.me/?text=${encodeURIComponent(
+              "Hola 👋 aquí está tu factura JEYMOOD"
+            )}`,
+            "_blank"
+          );
+
+        }
+
+      },
+      "image/png"
+    );
+
+  }}
+  className="w-full bg-green-500 text-white p-4 rounded-2xl font-bold"
+>
+  Compartir por WhatsApp
+</button>
 
               <div className="bg-pink-50 p-5 rounded-3xl text-center">
 
