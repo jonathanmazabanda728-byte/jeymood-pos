@@ -16,7 +16,6 @@ type SoapItem = {
 type CartItem = {
   soap: string;
   quantity: number;
-  wholesale: boolean;
   subtotal: number;
 };
 
@@ -80,9 +79,6 @@ export default function App() {
 
   const [quantity, setQuantity] =
     useState(1);
-
-  const [wholesale, setWholesale] =
-    useState(false);
 
   const [cart, setCart] =
     useState<CartItem[]>([]);
@@ -204,26 +200,32 @@ export default function App() {
   }, []);
 
   const calculatePrice = (
-    qty: number,
-    wholesalePrice: boolean
+    qty: number
   ) => {
-    if (wholesalePrice) {
-      return qty * 1.25;
+
+    // MAYORISTA
+    if (qty >= 10) {
+
+      return qty * 1.5;
+
     }
 
-    const packs =
-      Math.floor(qty / 4);
+    // PROMO 3x5
+    const promoPacks =
+      Math.floor(qty / 3);
 
     const remaining =
-      qty % 4;
+      qty % 3;
 
     return (
-      packs * 5 +
-      remaining * 1.5
-    );
-  }; useEffect(() => {
 
-  }, []);
+      promoPacks * 5 +
+
+      remaining * 2
+
+    );
+
+  };
 
   const addToCart = () => {
     if (!customer.trim()) {
@@ -235,8 +237,7 @@ export default function App() {
 
     const subtotal =
       calculatePrice(
-        quantity,
-        wholesale
+        quantity
       );
 
     setCart((prev) => [
@@ -244,7 +245,6 @@ export default function App() {
       {
         soap,
         quantity,
-        wholesale,
         subtotal,
       },
     ]);
@@ -889,24 +889,6 @@ export default function App() {
               className="w-full p-4 border rounded-2xl"
             />
 
-            <label className="flex items-center gap-3 bg-pink-50 p-4 rounded-2xl">
-
-              <input
-                type="checkbox"
-                checked={wholesale}
-                onChange={(e) =>
-                  setWholesale(
-                    e.target.checked
-                  )
-                }
-              />
-
-              <span className="font-bold">
-                Precio Mayorista ($1.25)
-              </span>
-
-            </label>
-
             <button
               onClick={addToCart}
               className="w-full bg-pink-500 text-white p-4 rounded-2xl font-bold"
@@ -950,11 +932,12 @@ export default function App() {
                       <div>
                         Tipo:
                         {" "}
-                        {item.wholesale
+                        {item.quantity >= 10
                           ? "Mayorista"
-                          : "Normal"}
+                          : item.quantity >= 3
+                            ? "Promoción 3x5"
+                            : "Unidad"}
                       </div>
-
                       <div className="text-pink-600 font-bold">
                         $
                         {item.subtotal.toFixed(
