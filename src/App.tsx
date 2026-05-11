@@ -105,9 +105,6 @@ export default function App() {
   const isAdmin =
     role === "admin";
 
-  const [user, setUser] =
-    useState<any>(null);
-
   const canvasRef =
     useRef<HTMLCanvasElement>(null);
 
@@ -744,7 +741,7 @@ export default function App() {
             >
               Salir
             </button>
-            
+
             <div>
 
               <div className="font-bold">
@@ -774,7 +771,7 @@ export default function App() {
 
         )}
 
-        {user && (
+        {isLogged && (
 
           <button
             onClick={logout}
