@@ -64,9 +64,6 @@ const SOAPS = [
   "TROPI FRESH",
 ];
 
-const INVENTORY_KEY = "inventario-jeymood";
-const SALES_KEY = "ventas-jeymood";
-
 export default function App() {
   const [tab, setTab] =
     useState("ventas");
