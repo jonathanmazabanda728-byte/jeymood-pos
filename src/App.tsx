@@ -1,12 +1,4 @@
 import {
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged
-} from "firebase/auth";
-
-import { auth } from "./firebase";
-import {
   doc,
   setDoc,
   onSnapshot
@@ -101,19 +93,63 @@ export default function App() {
   const [search, setSearch] =
     useState("");
 
+  const [pin, setPin] =
+    useState("");
+
+  const [isLogged, setIsLogged] =
+    useState(false);
+
+  const [role, setRole] =
+    useState<"admin" | "empleado" | null>(null);
+
+  const isAdmin =
+    role === "admin";
+
   const [user, setUser] =
     useState<any>(null);
 
-  const [isAdmin, setIsAdmin] =
-    useState(false);
-
   const canvasRef =
     useRef<HTMLCanvasElement>(null);
+
+  const loginWithPin = () => {
+
+    if (pin === "187276") {
+
+      setRole("admin");
+      setIsLogged(true);
+
+      localStorage.setItem(
+        "jeymood-role",
+        "admin"
+      );
+
+    } else if (
+
+      pin === "281018" ||
+      pin === "792865"
+
+    ) {
+
+      setRole("empleado");
+      setIsLogged(true);
+
+      localStorage.setItem(
+        "jeymood-role",
+        "empleado"
+      );
+
+    } else {
+
+      alert("PIN incorrecto");
+
+    }
+
+  };
+
   const syncFirebase = async (
     newInventory: any,
     newSales: any
   ) => {
-
     await setDoc(
       doc(db, "jeymood", "data"),
       {
@@ -189,32 +225,6 @@ export default function App() {
       remaining * 1.5
     );
   }; useEffect(() => {
-
-    const unsubscribe =
-      onAuthStateChanged(
-        auth,
-        (currentUser) => {
-
-          setUser(currentUser);
-
-          if (
-            currentUser?.email ===
-            "jonathanmazabanda728@gmail.com"
-          ) {
-
-            setIsAdmin(true);
-
-          } else {
-
-            setIsAdmin(false);
-
-          }
-
-        }
-      );
-
-    return () =>
-      unsubscribe();
 
   }, []);
 
@@ -651,40 +661,96 @@ export default function App() {
       0
     );
 
-  const login = async () => {
+  const logout = () => {
 
-    const provider =
-      new GoogleAuthProvider();
-
-    await signInWithPopup(
-      auth,
-      provider
+    localStorage.removeItem(
+      "jeymood-role"
     );
 
-  };
-
-  const logout = async () => {
-
-    await signOut(auth);
+    setIsLogged(false);
+    setRole(null);
+    setPin("");
 
   };
+
+  if (!isLogged) {
+
+    return (
+
+      <div className="min-h-screen bg-pink-100 flex items-center justify-center p-6">
+
+        <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md space-y-6">
+
+          <h1 className="text-4xl font-black text-pink-600 text-center">
+            JEYMOOD POS
+          </h1>
+
+          <p className="text-center text-gray-500 font-semibold">
+            Ingresa tu PIN
+          </p>
+
+          <input
+            type="password"
+            placeholder="PIN"
+            value={pin}
+            onChange={(e) =>
+              setPin(
+                e.target.value
+              )
+            }
+            className="w-full border-2 border-pink-200 rounded-2xl p-4 text-xl outline-none"
+          />
+
+          <button
+            onClick={loginWithPin}
+            className="w-full bg-pink-500 text-white rounded-2xl p-4 text-xl font-bold"
+          >
+            Entrar
+          </button>
+
+        </div>
+
+      </div>
+
+    );
+
+  }
+
   return (
     <div className="min-h-screen bg-pink-50 text-gray-800 pb-20">
       <div className="p-4 flex justify-between items-center bg-white shadow rounded-2xl mb-4">
 
-        {user ? (
+        {isLogged ? (
 
           <div className="flex items-center gap-3">
 
             <img
-              src={user.photoURL}
+              src="https://i.imgur.com/HeIi0wU.png"
               className="w-10 h-10 rounded-full"
             />
+            <div>
 
+              <p className="font-bold">
+                {role === "admin"
+                  ? "Administrador"
+                  : "Empleado"}
+              </p>
+
+            </div>
+
+            <button
+              onClick={logout}
+              className="bg-red-500 text-white px-4 py-2 rounded-xl"
+            >
+              Salir
+            </button>
+            
             <div>
 
               <div className="font-bold">
-                {user.displayName}
+                {role === "admin"
+                  ? "Administrador"
+                  : "Empleado"}
               </div>
 
               <div className="text-xs text-gray-500">
@@ -700,7 +766,7 @@ export default function App() {
         ) : (
 
           <button
-            onClick={login}
+            onClick={loginWithPin}
             className="bg-pink-500 text-white px-5 py-3 rounded-2xl font-bold"
           >
             Iniciar sesión
