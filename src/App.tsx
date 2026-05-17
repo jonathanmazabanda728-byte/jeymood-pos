@@ -925,6 +925,8 @@ export default function App() {
     );
   const resetSold = () => {
 
+    if (!isAdmin) return;
+
     const updatedInventory =
       inventory.map((item) => ({
         ...item,
@@ -1570,7 +1572,7 @@ export default function App() {
       )}
 
       {/* HISTORIAL */}
-      {tab === "historial" && isAdmin && (
+      {tab === "historial" && (
         <div className="p-4 space-y-4">
 
           <input
