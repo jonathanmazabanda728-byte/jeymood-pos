@@ -398,25 +398,71 @@ export default function App() {
       [...inventory];
 
     cart.forEach((item) => {
-      const found =
-        updatedInventory.find(
-          (i) =>
-            i.name === item.soap
+
+      // PROMO MEZCLA
+      if (
+        item.soap.includes(",")
+      ) {
+
+        const soaps =
+          item.soap.split(",");
+
+        soaps.forEach(
+          (soapName) => {
+
+            const found =
+              updatedInventory.find(
+                (i) =>
+                  i.name ===
+                  soapName
+                    .trim()
+                    .replace(/\s+/g, " ")
+                    .toUpperCase()
+              );
+
+            if (found) {
+
+              found.quantity -= 1;
+
+              found.sold += 1;
+
+              if (
+                found.quantity < 0
+              ) {
+                found.quantity = 0;
+              }
+
+            }
+
+          }
         );
 
-      if (found) {
-        found.quantity -=
-          item.quantity;
+      } else {
 
-        found.sold +=
-          item.quantity;
+        const found =
+          updatedInventory.find(
+            (i) =>
+              i.name === item.soap
+          );
 
-        if (
-          found.quantity < 0
-        ) {
-          found.quantity = 0;
+        if (found) {
+
+          found.quantity -=
+            item.quantity;
+
+          found.sold +=
+            item.quantity;
+
+          if (
+            found.quantity < 0
+          ) {
+            found.quantity = 0;
+          }
+
         }
+
       }
+
     });
 
     setInventory(
@@ -442,7 +488,7 @@ export default function App() {
     setCustomer("");
   };
 
-  const createInvoiceImage = async (
+  const createInvoiceImage = (
     sale: Sale
   ) => {
     const canvas =
@@ -655,7 +701,9 @@ export default function App() {
             2
           )}`,
           360,
-          y
+          item.soap.includes(",")
+            ? y - 120
+            : y
         );
 
         y += 35;
@@ -767,25 +815,71 @@ export default function App() {
 
     sale.items.forEach(
       (item) => {
-        const found =
-          updatedInventory.find(
-            (i) =>
-              i.name === item.soap
+
+        // PROMO MEZCLA
+        if (
+          item.soap.includes(",")
+        ) {
+
+          const soaps =
+            item.soap.split(",");
+          console.log(soaps);
+          soaps.forEach(
+            (soapName) => {
+
+              const found =
+                updatedInventory.find(
+                  (i) =>
+                    i.name ===
+                    soapName
+                      .trim()
+                      .replace(/\s+/g, " ")
+                      .toUpperCase()
+                );
+
+              if (found) {
+
+                found.quantity += 1;
+
+                found.sold -= 1;
+
+                if (
+                  found.sold < 0
+                ) {
+                  found.sold = 0;
+                }
+
+              }
+
+            }
           );
 
-        if (found) {
-          found.quantity +=
-            item.quantity;
+        } else {
 
-          found.sold -=
-            item.quantity;
+          const found =
+            updatedInventory.find(
+              (i) =>
+                i.name === item.soap
+            );
 
-          if (
-            found.sold < 0
-          ) {
-            found.sold = 0;
+          if (found) {
+
+            found.quantity +=
+              item.quantity;
+
+            found.sold -=
+              item.quantity;
+
+            if (
+              found.sold < 0
+            ) {
+              found.sold = 0;
+            }
+
           }
+
         }
+
       }
     );
 
@@ -829,7 +923,24 @@ export default function App() {
         acc + item.quantity,
       0
     );
+  const resetSold = () => {
 
+    const updatedInventory =
+      inventory.map((item) => ({
+        ...item,
+        sold: 0
+      }));
+
+    setInventory(
+      updatedInventory
+    );
+
+    syncFirebase(
+      updatedInventory,
+      sales
+    );
+
+  };
   const logout = () => {
 
     localStorage.removeItem(
@@ -1363,7 +1474,12 @@ export default function App() {
       {/* INVENTARIO */}
       {tab === "inventario" && (
         <div className="p-4">
-
+          <button
+            onClick={resetSold}
+            className="mb-4 bg-red-500 text-white px-4 py-3 rounded-2xl font-bold"
+          >
+            Reiniciar Vendidos
+          </button>
           <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
 
             <table className="w-full text-sm">
