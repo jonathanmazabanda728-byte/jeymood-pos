@@ -6,7 +6,7 @@ import {
 
 import { db } from "./firebase";
 import { useEffect, useMemo, useRef, useState } from "react";
-
+import logoImg from "./assets/logo.png";
 type SoapItem = {
   name: string;
   quantity: number;
@@ -50,6 +50,8 @@ const SOAPS = [
   "MELON",
   "MENTA",
   "NARANJA",
+  "PIÑA COCO",
+  "ROMERO",
   "ROSAS",
   "SANDIA",
   "TROPI FRESH",
@@ -79,6 +81,15 @@ export default function App() {
 
   const [quantity, setQuantity] =
     useState(1);
+
+  const [wholesale, setWholesale] =
+    useState(false);
+
+  const [promoMode, setPromoMode] =
+    useState(false);
+
+  const [promoMixItems, setPromoMixItems] =
+    useState<string[]>([]);
 
   const [cart, setCart] =
     useState<CartItem[]>([]);
@@ -164,13 +175,25 @@ export default function App() {
             const data =
               snapshot.data();
 
+            const mergedInventory =
+              SOAPS.map((soap) => {
+
+                const existing =
+                  data.inventory?.find(
+                    (i: any) =>
+                      i.name === soap
+                  );
+
+                return existing || {
+                  name: soap,
+                  quantity: 0,
+                  sold: 0
+                };
+
+              });
+
             setInventory(
-              data.inventory ||
-              SOAPS.map((soap) => ({
-                name: soap,
-                quantity: 0,
-                sold: 0
-              }))
+              mergedInventory
             );
 
             setSales(
@@ -200,30 +223,72 @@ export default function App() {
   }, []);
 
   const calculatePrice = (
-    qty: number
+    qty: number,
+    wholesaleMode: boolean,
+    promo: boolean
   ) => {
 
-    // MAYORISTA
+    // MAYORISTA MANUAL
+    if (wholesaleMode) {
+
+      return qty * 1.5;
+
+    }
+
+    // PROMOCIÓN MANUAL
+    // para mezclar fragancias
+    if (promo) {
+
+      const promoPacks =
+        Math.floor(qty / 3);
+
+      const remaining =
+        qty % 3;
+
+      return (
+        promoPacks * 5 +
+        remaining * 2
+      );
+
+    }
+
+    // AUTOMÁTICO MISMO JABÓN
     if (qty >= 10) {
 
       return qty * 1.5;
 
     }
 
-    // PROMO 3x5
-    const promoPacks =
-      Math.floor(qty / 3);
+    if (qty >= 3) {
 
-    const remaining =
-      qty % 3;
+      const promoPacks =
+        Math.floor(qty / 3);
 
-    return (
+      const remaining =
+        qty % 3;
 
-      promoPacks * 5 +
+      return (
+        promoPacks * 5 +
+        remaining * 2
+      );
 
-      remaining * 2
+    }
 
-    );
+    // NORMAL
+    return qty * 2;
+
+  };
+
+  const addPromoMixItem = () => {
+
+    if (promoMixItems.length >= 3) {
+      return;
+    }
+
+    setPromoMixItems((prev) => [
+      ...prev,
+      soap
+    ]);
 
   };
 
@@ -235,9 +300,32 @@ export default function App() {
       return;
     }
 
+    if (
+      promoMode &&
+      promoMixItems.length === 3
+    ) {
+
+      setCart((prev) => [
+        ...prev,
+        {
+          soap:
+            promoMixItems.join(", "),
+          quantity: 3,
+          subtotal: 5,
+        },
+      ]);
+
+      setPromoMixItems([]);
+
+      return;
+
+    }
+
     const subtotal =
       calculatePrice(
-        quantity
+        quantity,
+        wholesale,
+        promoMode
       );
 
     setCart((prev) => [
@@ -292,7 +380,7 @@ export default function App() {
       String(
         sales.length + 1
       ).padStart(
-        4,
+        7,
         "0"
       );
 
@@ -354,7 +442,7 @@ export default function App() {
     setCustomer("");
   };
 
-  const createInvoiceImage = (
+  const createInvoiceImage = async (
     sale: Sale
   ) => {
     const canvas =
@@ -393,6 +481,21 @@ export default function App() {
       130
     );
 
+    const logo =
+      new Image();
+
+    logo.src =
+      logoImg;
+
+    ctx.drawImage(
+      logo,
+      20,
+      20,
+      70,
+      70
+    );
+
+
     // TEXTO HEADER
     ctx.fillStyle =
       "#ffffff";
@@ -402,7 +505,7 @@ export default function App() {
 
     ctx.fillText(
       "JEYMOOD",
-      120,
+      100,
       55
     );
 
@@ -454,35 +557,104 @@ export default function App() {
 
     sale.items.forEach(
       (item) => {
-        ctx.fillStyle =
-          "#ec4899";
+        if (
+          item.soap.includes(",")
 
-        ctx.font =
-          "bold 18px Arial";
+        ) {
 
-        ctx.fillText(
-          item.soap,
-          20,
-          y
-        );
+
+          ctx.fillStyle =
+            "#ec4899";
+
+          ctx.font =
+            "bold 14px Arial";
+
+          ctx.fillText(
+            "PROMOCIÓN",
+            20,
+            y
+          );
+
+          ctx.fillStyle =
+            "#111827";
+
+          ctx.font =
+            "14px Arial";
+
+          ctx.fillText(
+            `Cantidad: ${item.quantity}`,
+            240,
+            y
+          );
+
+          y += 40;
+
+          const soaps =
+            item.soap.split(",");
+
+          ctx.fillStyle =
+            "#111827";
+
+          ctx.font =
+            "13px Arial";
+
+          soaps.forEach((soapName) => {
+
+            ctx.fillText(
+              `• ${soapName
+                .trim()
+                .toLowerCase()
+                .replace(
+                  /^./,
+                  (c) => c.toUpperCase()
+                )}`,
+              40,
+              y
+            );
+
+            y += 25;
+
+          });
+
+        } else {
+
+          ctx.fillStyle =
+            "#ec4899";
+
+          ctx.font =
+            "bold 16px Arial";
+
+          ctx.fillText(
+            item.soap,
+            20,
+            y
+          );
+
+        }
 
         ctx.fillStyle =
           "#111827";
 
         ctx.font =
-          "16px Arial";
+          "14px Arial";
 
-        ctx.fillText(
-          `Cantidad: ${item.quantity}`,
-          180,
-          y
-        );
+        if (
+          !item.soap.includes(",")
+        ) {
+
+          ctx.fillText(
+            `Cantidad: ${item.quantity}`,
+            240,
+            y
+          );
+
+        }
 
         ctx.fillText(
           `$${item.subtotal.toFixed(
             2
           )}`,
-          330,
+          360,
           y
         );
 
@@ -886,8 +1058,87 @@ export default function App() {
                   )
                 )
               }
-              className="w-full p-4 border rounded-2xl"
             />
+
+            <label className="flex items-center gap-3 bg-pink-50 p-4 rounded-2xl">
+
+              <input
+                type="checkbox"
+                checked={wholesale}
+                onChange={(e) =>
+                  setWholesale(
+                    e.target.checked
+                  )
+                }
+              />
+
+              <span className="font-bold">
+                Precio Mayorista ($1.50)
+              </span>
+
+            </label>
+
+            <label className="flex items-center gap-3 bg-pink-50 p-4 rounded-2xl">
+
+              <input
+                type="checkbox"
+                checked={promoMode}
+                onChange={(e) =>
+                  setPromoMode(
+                    e.target.checked
+                  )
+                }
+              />
+
+              <span className="font-bold">
+                Promoción Mezcla 3x$5
+              </span>
+
+            </label>
+
+            {promoMode && (
+
+              <div className="bg-pink-50 p-4 rounded-2xl space-y-3">
+
+                <div className="font-black text-pink-600">
+                  Promo Mezcla
+                </div>
+
+                <div className="text-sm">
+                  Jabones agregados:
+                </div>
+
+                <div className="space-y-2">
+
+                  {promoMixItems.map(
+                    (item, index) => (
+
+                      <div
+                        key={index}
+                        className="bg-white p-2 rounded-xl"
+                      >
+                        {item}
+                      </div>
+
+                    )
+                  )}
+
+                </div>
+
+                <div className="font-bold">
+                  {promoMixItems.length}/3
+                </div>
+
+                <button
+                  onClick={addPromoMixItem}
+                  className="w-full bg-pink-400 text-white p-3 rounded-2xl font-bold"
+                >
+                  Agregar a Promo
+                </button>
+
+              </div>
+
+            )}
 
             <button
               onClick={addToCart}
@@ -932,11 +1183,16 @@ export default function App() {
                       <div>
                         Tipo:
                         {" "}
-                        {item.quantity >= 10
-                          ? "Mayorista"
-                          : item.quantity >= 3
-                            ? "Promoción 3x5"
-                            : "Unidad"}
+
+                        {wholesale
+                          ? "Mayorista Manual"
+                          : promoMode
+                            ? "Promo Mezcla"
+                            : item.quantity >= 10
+                              ? "Mayorista"
+                              : item.quantity >= 3
+                                ? "Promoción 3x5"
+                                : "Unidad"}
                       </div>
                       <div className="text-pink-600 font-bold">
                         $
@@ -1016,68 +1272,68 @@ export default function App() {
                 Descargar Imagen
               </button>
 
-<button
-  onClick={async () => {
+              <button
+                onClick={async () => {
 
-    if (!canvasRef.current)
-      return;
+                  if (!canvasRef.current)
+                    return;
 
-    const canvas =
-      canvasRef.current;
+                  const canvas =
+                    canvasRef.current;
 
-    canvas.toBlob(
-      async (blob) => {
+                  canvas.toBlob(
+                    async (blob) => {
 
-        if (!blob) return;
+                      if (!blob) return;
 
-        const file =
-          new File(
-            [blob],
-            "factura-jeymood.png",
-            {
-              type: "image/png"
-            }
-          );
+                      const file =
+                        new File(
+                          [blob],
+                          "factura-jeymood.png",
+                          {
+                            type: "image/png"
+                          }
+                        );
 
-        if (
-          navigator.share &&
-          navigator.canShare({
-            files: [file]
-          })
-        ) {
+                      if (
+                        navigator.share &&
+                        navigator.canShare({
+                          files: [file]
+                        })
+                      ) {
 
-          await navigator.share({
+                        await navigator.share({
 
-            title:
-              "Factura JEYMOOD",
+                          title:
+                            "Factura JEYMOOD",
 
-            text:
-              "Hola 👋 aquí está tu factura JEYMOOD",
+                          text:
+                            "Hola 👋 aquí está tu factura JEYMOOD",
 
-            files: [file]
+                          files: [file]
 
-          });
+                        });
 
-        } else {
+                      } else {
 
-          window.open(
-            `https://wa.me/?text=${encodeURIComponent(
-              "Hola 👋 aquí está tu factura JEYMOOD"
-            )}`,
-            "_blank"
-          );
+                        window.open(
+                          `https://wa.me/?text=${encodeURIComponent(
+                            "Hola 👋 aquí está tu factura JEYMOOD"
+                          )}`,
+                          "_blank"
+                        );
 
-        }
+                      }
 
-      },
-      "image/png"
-    );
+                    },
+                    "image/png"
+                  );
 
-  }}
-  className="w-full bg-green-500 text-white p-4 rounded-2xl font-bold"
->
-  Compartir por WhatsApp
-</button>
+                }}
+                className="w-full bg-green-500 text-white p-4 rounded-2xl font-bold"
+              >
+                Compartir por WhatsApp
+              </button>
 
               <div className="bg-pink-50 p-5 rounded-3xl text-center">
 
