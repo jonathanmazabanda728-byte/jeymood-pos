@@ -1474,12 +1474,14 @@ export default function App() {
       {/* INVENTARIO */}
       {tab === "inventario" && (
         <div className="p-4">
-          <button
-            onClick={resetSold}
-            className="mb-4 bg-red-500 text-white px-4 py-3 rounded-2xl font-bold"
-          >
-            Reiniciar Vendidos
-          </button>
+          {isAdmin && (
+            <button
+              onClick={resetSold}
+              className="mb-4 bg-red-500 text-white px-4 py-3 rounded-2xl font-bold"
+            >
+              Reiniciar Vendidos
+            </button>
+          )}
           <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
 
             <table className="w-full text-sm">
