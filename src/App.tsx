@@ -21,6 +21,7 @@ type CartItem = {
 
 type Sale = {
   id: number;
+  type: "jabones" | "racimos";
   customer: string;
   items: CartItem[];
   total: number;
@@ -55,8 +56,23 @@ const SOAPS = [
   "ROSAS",
   "SANDIA",
   "TROPI FRESH",
-];
 
+];
+const RACIMOS = [
+  "COCO",
+  "FRESA MORA",
+  "FRUTILLA",
+  "FRUTOS ROJOS",
+  "LIMON",
+  "MANZANA",
+  "MARACUYA",
+  "NARANJA",
+  "PIÑA COCO",
+  "ROSAS",
+  "SANDIA",
+  "UVA MORADA",
+  "UVA VERDE",
+];
 export default function App() {
   const [tab, setTab] =
     useState("ventas");
@@ -69,7 +85,14 @@ export default function App() {
         sold: 0
       }))
     );
-
+  const [racimoInventory, setRacimoInventory] =
+    useState<SoapItem[]>(
+      RACIMOS.map((item) => ({
+        name: item,
+        quantity: 0,
+        sold: 0
+      }))
+    );
   const [sales, setSales] =
     useState<Sale[]>([]);
 
@@ -87,6 +110,12 @@ export default function App() {
 
   const [promoMode, setPromoMode] =
     useState(false);
+
+  const [racimoMixMode, setRacimoMixMode] =
+    useState(false);
+
+  const [racimoMixItems, setRacimoMixItems] =
+    useState<string[]>([]);
 
   const [promoMixItems, setPromoMixItems] =
     useState<string[]>([]);
@@ -108,7 +137,14 @@ export default function App() {
 
   const [role, setRole] =
     useState<"admin" | "empleado" | null>(null);
-
+  const [inventoryView, setInventoryView] =
+    useState<"jabones" | "racimos">(
+      "jabones"
+    );
+  const [saleType, setSaleType] =
+    useState<"jabones" | "racimos">(
+      "jabones"
+    );
   const isAdmin =
     role === "admin";
 
@@ -152,17 +188,21 @@ export default function App() {
 
   const syncFirebase = async (
     newInventory: any,
+    newRacimoInventory: any,
     newSales: any
   ) => {
+
     await setDoc(
       doc(db, "jeymood", "data"),
       {
         inventory: newInventory,
+        racimoInventory: newRacimoInventory,
         sales: newSales
       }
     );
 
   };
+
   useEffect(() => {
 
     const unsubscribe =
@@ -195,7 +235,26 @@ export default function App() {
             setInventory(
               mergedInventory
             );
+            const mergedRacimos =
+              RACIMOS.map((item) => {
 
+                const existing =
+                  data.racimoInventory?.find(
+                    (i: any) =>
+                      i.name === item
+                  );
+
+                return existing || {
+                  name: item,
+                  quantity: 0,
+                  sold: 0
+                };
+
+              });
+
+            setRacimoInventory(
+              mergedRacimos
+            );
             setSales(
               data.sales || []
             );
@@ -221,7 +280,37 @@ export default function App() {
       unsubscribe();
 
   }, []);
+  useEffect(() => {
 
+    if (saleType === "jabones") {
+
+      setSoap(SOAPS[0]);
+
+    } else {
+
+      setSoap(RACIMOS[0]);
+
+    }
+
+  }, [saleType]);
+  useEffect(() => {
+
+    if (saleType === "jabones") {
+
+      setRacimoMixMode(false);
+      setRacimoMixItems([]);
+
+    }
+
+    if (saleType === "racimos") {
+
+      setWholesale(false);
+      setPromoMode(false);
+      setPromoMixItems([]);
+
+    }
+
+  }, [saleType]);
   const calculatePrice = (
     qty: number,
     wholesaleMode: boolean,
@@ -320,14 +409,44 @@ export default function App() {
       return;
 
     }
+    if (
+      racimoMixMode &&
+      racimoMixItems.length === 3
+    ) {
 
-    const subtotal =
-      calculatePrice(
-        quantity,
-        wholesale,
-        promoMode
-      );
+      setCart((prev) => [
+        ...prev,
+        {
+          soap:
+            "RACIMO DE UVAS: " +
+            racimoMixItems.join(", "),
+          quantity: 3,
+          subtotal: 10,
+        },
+      ]);
 
+      setRacimoMixItems([]);
+
+      return;
+
+    }
+    let subtotal;
+
+    if (saleType === "racimos") {
+
+      subtotal =
+        quantity * 4;
+
+    } else {
+
+      subtotal =
+        calculatePrice(
+          quantity,
+          wholesale,
+          promoMode
+        );
+
+    }
     setCart((prev) => [
       ...prev,
       {
@@ -386,6 +505,7 @@ export default function App() {
 
     const newSale: Sale = {
       id: Date.now(),
+      type: saleType,
       customer,
       items: cart,
       total,
@@ -395,7 +515,9 @@ export default function App() {
     };
 
     const updatedInventory =
-      [...inventory];
+      saleType === "jabones"
+        ? [...inventory]
+        : [...racimoInventory];
 
     cart.forEach((item) => {
 
@@ -464,12 +586,28 @@ export default function App() {
       }
 
     });
+    if (saleType === "jabones") {
 
-    setInventory(
-      updatedInventory
-    );
+      setInventory(
+        updatedInventory
+      );
+
+    } else {
+
+      setRacimoInventory(
+        updatedInventory
+      );
+
+    }
     syncFirebase(
-      updatedInventory,
+      saleType === "jabones"
+        ? updatedInventory
+        : inventory,
+
+      saleType === "racimos"
+        ? updatedInventory
+        : racimoInventory,
+
       [
         newSale,
         ...sales
@@ -487,6 +625,7 @@ export default function App() {
     setCart([]);
     setCustomer("");
   };
+
 
   const createInvoiceImage = (
     sale: Sale
@@ -773,16 +912,38 @@ export default function App() {
     name: string,
     value: number
   ) => {
-    setInventory((prev) =>
-      prev.map((item) =>
-        item.name === name
-          ? {
-            ...item,
-            quantity: value,
-          }
-          : item
-      )
-    );
+
+    if (
+      inventoryView === "racimos"
+    ) {
+
+      setRacimoInventory(
+        (prev) =>
+          prev.map((item) =>
+            item.name === name
+              ? {
+                ...item,
+                quantity: value,
+              }
+              : item
+          )
+      );
+
+    } else {
+
+      setInventory((prev) =>
+        prev.map((item) =>
+          item.name === name
+            ? {
+              ...item,
+              quantity: value,
+            }
+            : item
+        )
+      );
+
+    }
+
   };
 
   const deleteSale = (
@@ -811,7 +972,9 @@ export default function App() {
     if (!sale) return;
 
     const updatedInventory =
-      [...inventory];
+      sale.type === "jabones"
+        ? [...inventory]
+        : [...racimoInventory];
 
     sale.items.forEach(
       (item) => {
@@ -883,9 +1046,19 @@ export default function App() {
       }
     );
 
-    setInventory(
-      updatedInventory
-    );
+    if (sale.type === "jabones") {
+
+      setInventory(
+        updatedInventory
+      );
+
+    } else {
+
+      setRacimoInventory(
+        updatedInventory
+      );
+
+    }
 
     setSales((prev) =>
       prev.filter(
@@ -900,8 +1073,17 @@ export default function App() {
       );
 
     syncFirebase(
-      updatedInventory,
+
+      sale.type === "jabones"
+        ? updatedInventory
+        : inventory,
+
+      sale.type === "racimos"
+        ? updatedInventory
+        : racimoInventory,
+
       updatedSales
+
     );
     alert(
       "Venta eliminada"
@@ -918,7 +1100,11 @@ export default function App() {
     );
 
   const totalGeneral =
-    inventory.reduce(
+    (
+      inventoryView === "jabones"
+        ? inventory
+        : racimoInventory
+    ).reduce(
       (acc, item) =>
         acc + item.quantity,
       0
@@ -937,10 +1123,11 @@ export default function App() {
       updatedInventory
     );
 
-    syncFirebase(
-      updatedInventory,
-      sales
-    );
+syncFirebase(
+  updatedInventory,
+  racimoInventory,
+  sales
+);
 
   };
   const logout = () => {
@@ -1127,7 +1314,33 @@ export default function App() {
             <h1 className="text-3xl font-black text-pink-600">
               JEYMOOD POS
             </h1>
+            <div className="flex gap-3">
 
+              <button
+                onClick={() =>
+                  setSaleType("jabones")
+                }
+                className={`px-4 py-3 rounded-2xl font-bold ${saleType === "jabones"
+                  ? "bg-pink-500 text-white"
+                  : "bg-pink-100"
+                  }`}
+              >
+                JABONES 🧼
+              </button>
+
+              <button
+                onClick={() =>
+                  setSaleType("racimos")
+                }
+                className={`px-4 py-3 rounded-2xl font-bold ${saleType === "racimos"
+                  ? "bg-pink-500 text-white"
+                  : "bg-pink-100"
+                  }`}
+              >
+                RACIMOS 🍇
+              </button>
+
+            </div>
             <input
               type="text"
               placeholder="Cliente"
@@ -1149,15 +1362,21 @@ export default function App() {
               }
               className="w-full p-4 border rounded-2xl"
             >
-              {SOAPS.map(
-                (item) => (
-                  <option
-                    key={item}
-                  >
-                    {item}
-                  </option>
-                )
-              )}
+
+              {(saleType === "jabones"
+                ? SOAPS
+                : RACIMOS
+              ).map((item) => (
+
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+
+              ))}
+
             </select>
 
             <input
@@ -1173,41 +1392,72 @@ export default function App() {
               }
             />
 
-            <label className="flex items-center gap-3 bg-pink-50 p-4 rounded-2xl">
+            {saleType === "jabones" && (
 
-              <input
-                type="checkbox"
-                checked={wholesale}
-                onChange={(e) =>
-                  setWholesale(
-                    e.target.checked
-                  )
-                }
-              />
+              <label className="flex items-center gap-3 bg-pink-50 p-4 rounded-2xl">
 
-              <span className="font-bold">
-                Precio Mayorista ($1.50)
-              </span>
+                <input
+                  type="checkbox"
+                  checked={wholesale}
+                  onChange={(e) =>
+                    setWholesale(
+                      e.target.checked
+                    )
+                  }
+                />
 
-            </label>
+                <span className="font-bold">
+                  Precio Mayorista ($1.50)
+                </span>
 
-            <label className="flex items-center gap-3 bg-pink-50 p-4 rounded-2xl">
+              </label>
 
-              <input
-                type="checkbox"
-                checked={promoMode}
-                onChange={(e) =>
-                  setPromoMode(
-                    e.target.checked
-                  )
-                }
-              />
+            )}
 
-              <span className="font-bold">
-                Promoción Mezcla 3x$5
-              </span>
+            {saleType === "jabones" && (
 
-            </label>
+              <label className="flex items-center gap-3 bg-pink-50 p-4 rounded-2xl">
+
+                <input
+                  type="checkbox"
+                  checked={promoMode}
+                  onChange={(e) =>
+                    setPromoMode(
+                      e.target.checked
+                    )
+                  }
+                />
+
+                <span className="font-bold">
+                  Promoción Mezcla 3x$5
+                </span>
+
+              </label>
+
+            )}
+
+
+            {saleType === "racimos" && (
+
+              <label className="flex items-center gap-3 bg-pink-50 p-4 rounded-2xl">
+
+                <input
+                  type="checkbox"
+                  checked={racimoMixMode}
+                  onChange={(e) =>
+                    setRacimoMixMode(
+                      e.target.checked
+                    )
+                  }
+                />
+
+                <span className="font-bold">
+                  Mezcla Racimo 3x$10
+                </span>
+
+              </label>
+
+            )}
 
             {promoMode && (
 
@@ -1252,7 +1502,64 @@ export default function App() {
               </div>
 
             )}
+            {saleType === "racimos" && racimoMixMode && (
 
+              <div className="bg-pink-50 p-4 rounded-2xl space-y-3">
+
+                <div className="font-black text-pink-600">
+                  Racimo Mezcla
+                </div>
+
+                <div className="text-sm">
+                  Fragancias agregadas:
+                </div>
+
+                <div className="space-y-2">
+
+                  {racimoMixItems.map(
+                    (item, index) => (
+
+                      <div
+                        key={index}
+                        className="bg-white p-2 rounded-xl"
+                      >
+                        {item}
+                      </div>
+
+                    )
+                  )}
+
+                </div>
+
+                <div className="font-bold">
+                  {racimoMixItems.length}/3
+                </div>
+
+                <button
+                  onClick={() => {
+
+                    if (
+                      racimoMixItems.length >= 3
+                    ) {
+                      return;
+                    }
+
+                    setRacimoMixItems(
+                      (prev) => [
+                        ...prev,
+                        soap
+                      ]
+                    );
+
+                  }}
+                  className="w-full bg-purple-500 text-white p-3 rounded-2xl font-bold"
+                >
+                  Agregar a Racimo
+                </button>
+
+              </div>
+
+            )}
             <button
               onClick={addToCart}
               className="w-full bg-pink-500 text-white p-4 rounded-2xl font-bold"
@@ -1465,14 +1772,14 @@ export default function App() {
             </div>
           )}
 
-          <canvas
-            ref={canvasRef}
-            className="hidden"
-          />
+
 
         </div>
       )}
-
+      <canvas
+        ref={canvasRef}
+        className="hidden"
+      />
       {/* INVENTARIO */}
       {tab === "inventario" && (
         <div className="p-4">
@@ -1484,6 +1791,37 @@ export default function App() {
               Reiniciar Vendidos
             </button>
           )}
+          <div className="flex gap-3 mb-4">
+
+            <button
+              onClick={() =>
+                setInventoryView(
+                  "jabones"
+                )
+              }
+              className={`px-4 py-3 rounded-2xl font-bold ${inventoryView === "jabones"
+                ? "bg-pink-500 text-white"
+                : "bg-pink-100"
+                }`}
+            >
+              JABONES 🧼
+            </button>
+
+            <button
+              onClick={() =>
+                setInventoryView(
+                  "racimos"
+                )
+              }
+              className={`px-4 py-3 rounded-2xl font-bold ${inventoryView === "racimos"
+                ? "bg-pink-500 text-white"
+                : "bg-pink-100"
+                }`}
+            >
+              RACIMOS 🍇
+            </button>
+
+          </div>
           <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
 
             <table className="w-full text-sm">
@@ -1493,7 +1831,9 @@ export default function App() {
                 <tr>
 
                   <th className="p-3">
-                    Jabón
+                    {inventoryView === "jabones"
+                      ? "Jabón"
+                      : "Racimo"}
                   </th>
 
                   <th className="p-3">
@@ -1514,7 +1854,11 @@ export default function App() {
 
               <tbody>
 
-                {inventory.map(
+                {(
+                  inventoryView === "jabones"
+                    ? inventory
+                    : racimoInventory
+                ).map(
                   (item) => (
                     <tr
                       key={item.name}
@@ -1625,7 +1969,40 @@ export default function App() {
                     >
                       Eliminar
                     </button>
+
                   )}
+                  <button
+                    onClick={() => {
+
+                      createInvoiceImage(
+                        sale
+                      );
+
+                      setTimeout(() => {
+
+                        const link =
+                          document.createElement(
+                            "a"
+                          );
+
+                        link.href =
+                          canvasRef.current!
+                            .toDataURL(
+                              "image/png"
+                            );
+
+                        link.download =
+                          `Factura-${sale.invoiceNumber}.png`;
+
+                        link.click();
+
+                      }, 800);
+
+                    }}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-xl font-bold ml-2"
+                  >
+                    Descargar Factura
+                  </button>
                 </div>
 
                 <div className="mt-4 space-y-2">
