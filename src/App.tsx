@@ -908,43 +908,68 @@ export default function App() {
     );
   };
 
-  const updateQuantity = (
-    name: string,
-    value: number
-  ) => {
+ const updateQuantity = (
+  name: string,
+  value: number
+) => {
 
-    if (
-      inventoryView === "racimos"
-    ) {
+  console.log(
+    "CAMBIANDO",
+    name,
+    value
+  );
 
-      setRacimoInventory(
-        (prev) =>
-          prev.map((item) =>
-            item.name === name
-              ? {
+  if (
+    inventoryView === "racimos"
+  ) {
+
+    const updatedRacimos =
+      racimoInventory.map(
+        (item) =>
+          item.name === name
+            ? {
                 ...item,
                 quantity: value,
               }
-              : item
-          )
+            : item
       );
 
-    } else {
+    setRacimoInventory(
+      updatedRacimos
+    );
 
-      setInventory((prev) =>
-        prev.map((item) =>
+    syncFirebase(
+      inventory,
+      updatedRacimos,
+      sales
+    );
+
+  } else {
+
+    const updatedInventory =
+      inventory.map(
+        (item) =>
           item.name === name
             ? {
-              ...item,
-              quantity: value,
-            }
+                ...item,
+                quantity: value,
+              }
             : item
-        )
       );
 
-    }
+    setInventory(
+      updatedInventory
+    );
 
-  };
+    syncFirebase(
+      updatedInventory,
+      racimoInventory,
+      sales
+    );
+
+  }
+
+};
 
   const deleteSale = (
     saleId: number
